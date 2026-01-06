@@ -57,7 +57,7 @@ document.body.onload = function(){
   marketplaces.forEach((market) => {
     var u = market['feed'];
     // Using a single, compatible proxy
-    var proxy_url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
+    var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
     .then(res => {
