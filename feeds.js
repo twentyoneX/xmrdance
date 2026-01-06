@@ -1,25 +1,25 @@
 const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 
 function add_listing(item) {
+  // Ensure title and link are strings before trying to replace
+  item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
+   return '&#'+i.charCodeAt(0)+';';
+  });
+  item['link'] = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
+   return '&#'+i.charCodeAt(0)+';';
+  });
+  var listing_entry = document.createElement('div');
+  listing_entry.innerHTML += '<li class="listing-title"><a href="'+item['link']+'" title="'+item['title']+'">'+item['title']+'</a></li>';
+  listing_entry.setAttribute('data-timestamp', item['timestamp']);
+  listing_entry.className = 'single_listing';
+  
   var target_element = document.getElementById(item['market']);
-  // --- This is the fix: Only proceed if the HTML element actually exists ---
   if (target_element) {
-    item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
-     return '&#'+i.charCodeAt(0)+';';
-    });
-    item['link'] = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
-     return '&#'+i.charCodeAt(0)+';';
-    });
-    var listing_entry = document.createElement('div');
-    listing_entry.innerHTML += '<li class="listing-title"><a href="'+item['link']+'" title="'+item['title']+'">'+item['title']+'</a></li>';
-    listing_entry.setAttribute('data-timestamp', item['timestamp']);
-    listing_entry.className = 'single_listing';
-    target_element.appendChild(listing_entry);
-    
-    var target_box = document.getElementById(item['market']+'_box');
-    if (target_box) {
-        target_box.classList.remove('loading-bg');
-    }
+      target_element.appendChild(listing_entry);
+      var target_box = document.getElementById(item['market']+'_box');
+      if (target_box) {
+          target_box.classList.remove('loading-bg');
+      }
   }
 }
 
@@ -48,7 +48,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_accepted_here', 'feed': 'https://acceptedhere.io/catalog/currency/xmr/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
-  marketplaces.push({'name': 'monero_observer_market', 'feed': 'https://monero.observer/feed-messages.xml', 'format': 'rss'});
+  // marketplace.push({'name': 'monero_observer_market', 'feed': 'https://monero.observer/feed-messages.xml', 'format': 'rss'}); // This feed has no home in the HTML, so we comment it out.
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://tg.i-c-a.su/rss/moneromarket?limit=50', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.net/monero/rss', 'format': 'rss'});
@@ -60,8 +60,8 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // --- USING A NEW, STABLE AND TESTED PROXY ---
-    var proxy_url = "https://api.codetabs.com/v1/proxy?quest=" + u;
+    // --- USING A MORE RELIABLE PROXY ---
+    var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
     .then((res) => {
@@ -73,6 +73,10 @@ document.body.onload = function(){
     .then((xml_text) => {
         var listings = [];
         try {
+          if (xml_text.trim() === '') { // Handle empty responses from the proxy
+              throw new Error("Proxy returned empty response");
+          }
+            
           if(market['format'] == 'scraper') {
             var parser = new DOMParser();
             var scraper_doc = parser.parseFromString(xml_text, "text/html");
