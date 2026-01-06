@@ -45,187 +45,216 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'}); // UPDATED Nitter link
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'}); // UPDATED Nitter link
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
 
+// --- NEW: ROBUST FETCH FUNCTION WITH FALLBACKS ---
+async function fetch_with_fallbacks(url) {
+  const proxies = [
+    "https://api.allorigins.win/raw?url=",
+    "https://corsproxy.io/?",
+    "https://api.codetabs.com/v1/proxy?quest="
+  ];
+
+  for (let i = 0; i < proxies.length; i++) {
+    let proxy = proxies[i];
+    let fetch_url;
+
+    // corsproxy.io has a different URL structure
+    if (proxy.includes('corsproxy.io')) {
+      fetch_url = proxy + url;
+    } else {
+      fetch_url = proxy + encodeURIComponent(url);
+    }
+    
+    try {
+      const response = await fetch(fetch_url);
+      if (response.ok) {
+        console.log("Success with proxy: " + proxy + " for " + url);
+        return await response.text();
+      }
+      console.log("Proxy failed (bad response): " + proxy + " for " + url);
+    } catch (error) {
+      console.log("Proxy failed (network error): " + proxy + " for " + url);
+    }
+  }
+  // If all proxies fail, throw an error
+  throw new Error("All proxies failed for URL: " + url);
+}
+
 document.body.onload = function(){
   var marketplaces = get_marketplaces();
-  marketplaces.forEach((market) => {
+  marketplaces.forEach(async (market) => { // Make the function async
     var u = market['feed'];
-    var proxy_url = "https://corsproxy.io/?" + u;
     
-    fetch(proxy_url)
-    .then((res) => {
-      if (!res.ok) {
-          throw new Error('Network response was not ok for ' + u);
+    try {
+      const xml_text = await fetch_with_fallbacks(u); // Use the new robust fetch function
+      
+      var listings = [];
+      // The rest of your parsing logic is unchanged
+      if (xml_text.trim() === '') {
+          throw new Error("Proxy returned empty response");
       }
-      return res.text();
-    })
-    .then((xml_text) => {
-        var listings = [];
-        try {
-          if (xml_text.trim() === '') {
-              throw new Error("Proxy returned empty response");
+      
+      if(market['format'] == 'scraper') {
+        var parser = new DOMParser();
+        var scraper_doc = parser.parseFromString(xml_text, "text/html");
+        
+        if(market['name'] == 'ccs') {
+          var ccs_links = $(scraper_doc).find('.fund-required a');
+          ccs_links.each(function() {
+            var title = $(this).find('h3').text()+' - '+$(this).find('.progress-number-funded').text()+'/'+$(this).find('.progress-number-goal').text()+' XMR';
+            var timestamp = (new Date().getTime()/1000);
+            var link = 'https://ccs.getmonero.org'+$(this).attr('href');
+            listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
+          });
+        } else if(market['name'] == 'monerochan_news') {
+          var ccs_links = $(scraper_doc).find('a[href*="article"]');
+          ccs_links.each(function() {
+            var title = $(this).find('h1').text();
+            var timestamp = (new Date().getTime()/1000);
+            var link = 'https://monerochan.news'+$(this).attr('href');
+            listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
+          });
+        } else if(market['name'] == 'monero_market_io') {
+          var ccs_links = $(scraper_doc).find('a[href*="listing"]');
+          ccs_links.each(function() {
+            var title = $(this).find('.desc').text();
+            var timestamp = (new Date().getTime()/1000);
+            var link = 'https://moneromarket.io'+$(this).attr('href');
+            if(title) listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
+          });
+        } else if(market['name'] == 'monerica') {
+          var ccs_links = $(scraper_doc).find('li a').slice(14, 20);
+          ccs_links.each(function() {
+            var title = $(this).text();
+            var timestamp = (new Date().getTime()/1000);
+            var link = $(this).attr('href');
+            listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
+          });
+        } else if(market['name'] == 'count_monero_market_io') {
+          var market_total = 0;
+          $(scraper_doc).find('#categories a span').each(function() {
+              var num = parseInt($(this).text().replace(/\D/g,''));
+              if (!isNaN(num)) market_total += num;
+          });
+          if(market_total > 0) $('#monero_market_count').text(market_total);
+        } else if(market['name'] == 'count_monerica') {
+          var market_total = $(scraper_doc).find('li a').length;
+          if(market_total > 0) $('#monerica_count').text(market_total);
+        } else if(market['name'] == 'blockchain_monthly_txs') {
+          var market_total = $(scraper_doc).find('.data-table tr:nth-child(1) td:nth-child(2)').text().replace(/\D/g,'');
+          if(market_total) $('#stats_monthly_txs').text(market_total);
+        } else if(market['name'] == 'blockchain_stats') {
+          var search_text = $(scraper_doc).text().split('age [h:m:s]')[0].replace(/[\n\r]/g, ' ');
+          var version_match = /GUI (.*?) /.exec(search_text);
+          if(version_match) $('#stats_version').text(version_match[1]);
+          var height_match = /as of (.*?) block/.exec(search_text);
+          if(height_match) $('#stats_block_height').text(height_match[1]);
+          var hash_match = /Hash rate: (.*?) /.exec(search_text);
+          if(hash_match) $('#stats_hash_rate').text(hash_match[1]+' GH/s');
+          var fee_match = /Fee per byte: (.*?) /.exec(search_text);
+          if(fee_match) $('#stats_fee').text(fee_match[1]+' XMR');
+          var emission_match = /Monero emission (.*?) is (.*?) /.exec(search_text);
+          if(emission_match) $('#stats_emission').text(emission_match[2]+' XMR');
+        }
+        
+        listings = listings.slice(0, 6);
+        listings.forEach((item) => add_listing(item));
+        
+      } else if(market['format'] == 'api') {
+        var json_text = JSON.parse(xml_text);
+        if(market['name'] == 'monero_bounties') {
+          json_text.forEach((item) => {
+            listings.push({ "title": item.title, "timestamp": (new Date().getTime()/1000), "link": 'https://bounties.monero.social/posts/'+item.id+'/'+item.slug, "market": market['name'] });
+          });
+          listings = listings.slice(0, 6);
+          listings.forEach((item) => add_listing(item));
+        } else if(market['name'] == 'price_in_usd') {
+          if(json_text?.data?.USD) {
+            $('#header_monero_usd_price').text('$'+json_text.data.USD.avg_24h);
+            $('#box_monero_usd_price').text('$'+json_text.data.USD.avg_24h);
           }
-            
-          if(market['format'] == 'scraper') {
-            var parser = new DOMParser();
-            var scraper_doc = parser.parseFromString(xml_text, "text/html");
-            
-            if(market['name'] == 'ccs') {
-              var ccs_links = $(scraper_doc).find('.fund-required a');
-              ccs_links.each(function() {
-                var title = $(this).find('h3').text()+' - '+$(this).find('.progress-number-funded').text()+'/'+$(this).find('.progress-number-goal').text()+' XMR';
-                var timestamp = (new Date().getTime()/1000);
-                var link = 'https://ccs.getmonero.org'+$(this).attr('href');
-                listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
-              });
-            } else if(market['name'] == 'monerochan_news') {
-              var ccs_links = $(scraper_doc).find('a[href*="article"]');
-              ccs_links.each(function() {
-                var title = $(this).find('h1').text();
-                var timestamp = (new Date().getTime()/1000);
-                var link = 'https://monerochan.news'+$(this).attr('href');
-                listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
-              });
-            } else if(market['name'] == 'monero_market_io') {
-              var ccs_links = $(scraper_doc).find('a[href*="listing"]');
-              ccs_links.each(function() {
-                var title = $(this).find('.desc').text();
-                var timestamp = (new Date().getTime()/1000);
-                var link = 'https://moneromarket.io'+$(this).attr('href');
-                if(title) listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
-              });
-            } else if(market['name'] == 'monerica') {
-              var ccs_links = $(scraper_doc).find('li a').slice(14, 20);
-              ccs_links.each(function() {
-                var title = $(this).text();
-                var timestamp = (new Date().getTime()/1000);
-                var link = $(this).attr('href');
-                listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
-              });
-            } else if(market['name'] == 'count_monero_market_io') {
-              var market_total = 0;
-              $(scraper_doc).find('#categories a span').each(function() {
-                  var num = parseInt($(this).text().replace(/\D/g,''));
-                  if (!isNaN(num)) market_total += num;
-              });
-              if(market_total > 0) $('#monero_market_count').text(market_total);
-            } else if(market['name'] == 'count_monerica') {
-              var market_total = $(scraper_doc).find('li a').length;
-              if(market_total > 0) $('#monerica_count').text(market_total);
-            } else if(market['name'] == 'blockchain_monthly_txs') {
-              var market_total = $(scraper_doc).find('.data-table tr:nth-child(1) td:nth-child(2)').text().replace(/\D/g,'');
-              if(market_total) $('#stats_monthly_txs').text(market_total);
-            } else if(market['name'] == 'blockchain_stats') {
-              var search_text = $(scraper_doc).text().split('age [h:m:s]')[0].replace(/[\n\r]/g, ' ');
-              var version_match = /GUI (.*?) /.exec(search_text);
-              if(version_match) $('#stats_version').text(version_match[1]);
-              var height_match = /as of (.*?) block/.exec(search_text);
-              if(height_match) $('#stats_block_height').text(height_match[1]);
-              var hash_match = /Hash rate: (.*?) /.exec(search_text);
-              if(hash_match) $('#stats_hash_rate').text(hash_match[1]+' GH/s');
-              var fee_match = /Fee per byte: (.*?) /.exec(search_text);
-              if(fee_match) $('#stats_fee').text(fee_match[1]+' XMR');
-              var emission_match = /Monero emission (.*?) is (.*?) /.exec(search_text);
-              if(emission_match) $('#stats_emission').text(emission_match[2]+' XMR');
-            }
-            
-            listings = listings.slice(0, 6);
-            listings.forEach((item) => add_listing(item));
-            
-          } else if(market['format'] == 'api') {
-            var json_text = JSON.parse(xml_text);
-            if(market['name'] == 'monero_bounties') {
-              json_text.forEach((item) => {
-                listings.push({ "title": item.title, "timestamp": (new Date().getTime()/1000), "link": 'https://bounties.monero.social/posts/'+item.id+'/'+item.slug, "market": market['name'] });
-              });
-              listings = listings.slice(0, 6);
-              listings.forEach((item) => add_listing(item));
-            } else if(market['name'] == 'price_in_usd') {
-              if(json_text?.data?.USD) {
-                $('#header_monero_usd_price').text('$'+json_text.data.USD.avg_24h);
-                $('#box_monero_usd_price').text('$'+json_text.data.USD.avg_24h);
-              }
-            } else if(market['name'] == 'price_in_btc') {
-              if(json_text?.data?.BTC) {
-                $('#box_monero_btc_price').text(json_text.data.BTC.avg_24h+' BTC');
-              }
-            }
-          } else { // RSS/Atom feeds
-            var doc = DOMPARSER(xml_text, "text/xml");
-            var x2js = new X2JS();
-            var json_text = x2js.xml2json(doc);
-            var items = [];
-            
-            if (market['format'] == 'atom' && json_text.feed?.entry) {
-              items = Array.isArray(json_text.feed.entry) ? json_text.feed.entry : [json_text.feed.entry];
-            } else if (market['format'] == 'rss' && json_text.rss?.channel?.item) {
-              items = Array.isArray(json_text.rss.channel.item) ? json_text.rss.channel.item : [json_text.rss.channel.item];
-            }
-            
-            if (items.length > 0) {
-              if (market['format'] == 'atom') {
-                items.forEach((item) => {
-                  if(!item.title) return;
-                  var link = item.link?._href || item.link || '';
-                  if(link) listings.push({ "title": item.title, "timestamp": (new Date(item.published || item.updated).getTime()/1000), "link": link, "market": market['name'] });
-                });
-              } else if (market['format'] == 'rss') {
-                items.forEach((item) => {
-                  if (!item.title) return;
-                  
-                  var rss_push_listing = true;
-                  var title = item.title;
-                  
-                  if (market['name'] == 'events_calendar') {
-                    if (title.includes(' scheduled for ')) {
-                        var title_parts = title.split(' scheduled for ');
-                        var title_text = title_parts[0];
-                        var title_date_parts = title_parts[1].split(' ');
-                        if (title_date_parts.length >= 3) {
-                            var title_date = new Date(`${title_date_parts[1]} ${title_date_parts[0]}, ${title_date_parts[2]}`);
-                            if (title_date.toString() !== 'Invalid Date') {
-                                title = `${title_date.toLocaleString('default', { month: 'short' })} ${title_date.getDate()}: ${title_text}`;
-                            } else {
-                                title = title_text;
-                            }
+        } else if(market['name'] == 'price_in_btc') {
+          if(json_text?.data?.BTC) {
+            $('#box_monero_btc_price').text(json_text.data.BTC.avg_24h+' BTC');
+          }
+        }
+      } else { // RSS/Atom feeds
+        var doc = DOMPARSER(xml_text, "text/xml");
+        var x2js = new X2JS();
+        var json_text = x2js.xml2json(doc);
+        var items = [];
+        
+        if (market['format'] == 'atom' && json_text.feed?.entry) {
+          items = Array.isArray(json_text.feed.entry) ? json_text.feed.entry : [json_text.feed.entry];
+        } else if (market['format'] == 'rss' && json_text.rss?.channel?.item) {
+          items = Array.isArray(json_text.rss.channel.item) ? json_text.rss.channel.item : [json_text.rss.channel.item];
+        }
+        
+        if (items.length > 0) {
+          if (market['format'] == 'atom') {
+            items.forEach((item) => {
+              if(!item.title) return;
+              var link = item.link?._href || item.link || '';
+              if(link) listings.push({ "title": item.title, "timestamp": (new Date(item.published || item.updated).getTime()/1000), "link": link, "market": market['name'] });
+            });
+          } else if (market['format'] == 'rss') {
+            items.forEach((item) => {
+              if (!item.title) return;
+              
+              var rss_push_listing = true;
+              var title = item.title;
+              
+              if (market['name'] == 'events_calendar') {
+                if (title.includes(' scheduled for ')) {
+                    var title_parts = title.split(' scheduled for ');
+                    var title_text = title_parts[0];
+                    var title_date_parts = title_parts[1].split(' ');
+                    if (title_date_parts.length >= 3) {
+                        var title_date = new Date(`${title_date_parts[1]} ${title_date_parts[0]}, ${title_date_parts[2]}`);
+                        if (title_date.toString() !== 'Invalid Date') {
+                            title = `${title_date.toLocaleString('default', { month: 'short' })} ${title_date.getDate()}: ${title_text}`;
                         } else {
                             title = title_text;
                         }
+                    } else {
+                        title = title_text;
                     }
-                  }
-                  
-                  if (market['name'] == 'telegram_monero_market' || market['name'] == 'twitter_monero') {
-                    title = item.title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
-                  }
-                  
-                  if (market['name'] == 'monero_research' && listings.some(l => l.link == item.link)) {
-                    rss_push_listing = false;
-                  }
-                  
-                  if (rss_push_listing) {
-                    var link = item.link || '';
-                    if(link) listings.push({ "title": title, "timestamp": (new Date(item.pubDate).getTime()/1000), "link": link, "market": market['name'] });
-                  }
-                });
+                }
               }
-            }
-            
-            listings = listings.slice(0, 6);
-            listings.forEach((item) => add_listing(item));
+              
+              if (market['name'] == 'telegram_monero_market' || market['name'] == 'twitter_monero') {
+                title = item.title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+              }
+              
+              if (market['name'] == 'monero_research' && listings.some(l => l.link == item.link)) {
+                rss_push_listing = false;
+              }
+              
+              if (rss_push_listing) {
+                var link = item.link || '';
+                if(link) listings.push({ "title": title, "timestamp": (new Date(item.pubDate).getTime()/1000), "link": link, "market": market['name'] });
+              }
+            });
           }
-        } catch(error) {
-          console.error('Error processing', market['name'], ':', error);
-          var element = document.getElementById(market['name']+'_box');
-          if(element) element.classList.remove('loading-bg');
         }
-    })
-    .catch(error => {
-      console.error('Fetch failed for', market['name'], ':', error);
+        
+        listings = listings.slice(0, 6);
+        listings.forEach((item) => add_listing(item));
+      }
+
+    } catch(error) {
+      console.error('Error processing', market['name'], ':', error);
+      var element = document.getElementById(market['name']+'_box');
+      if(element) element.classList.remove('loading-bg');
+    }
+    
+    }).catch(error => {
+      console.error('Fetch failed completely for', market['name'], ':', error);
       var element = document.getElementById(market['name']+'_box');
       if(element) element.classList.remove('loading-bg');
     });
