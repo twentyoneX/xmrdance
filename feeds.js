@@ -44,7 +44,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
-  marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'}); // REPLACED Bitejo with XMRBazaar
+  marketplaces.push({'name': 'xmrbazaar', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'}); // REPLACED Bitejo with XMRBazaar
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.cz/monero/rss', 'format': 'rss'});
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.cz/monero_market/rss', 'format': 'rss'});
