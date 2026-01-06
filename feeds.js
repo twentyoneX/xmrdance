@@ -2,7 +2,6 @@ const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 
 function add_listing(item) {
   var target_element = document.getElementById(item['market']);
-  // This is the fix: Only proceed if the HTML element actually exists
   if (target_element) {
     item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
      return '&#'+i.charCodeAt(0)+';';
@@ -46,8 +45,8 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.net/monero/rss', 'format': 'rss'}); // UPDATED to a working Nitter instance
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.net/monero_market/rss', 'format': 'rss'}); // UPDATED to a working Nitter instance
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'}); // UPDATED Nitter link
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'}); // UPDATED Nitter link
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
@@ -56,8 +55,7 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // Using a more compatible proxy
-    var proxy_url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
+    var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
     .then((res) => {
