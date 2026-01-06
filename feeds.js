@@ -3,7 +3,7 @@ const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 function add_listing(item) {
   var target_element = document.getElementById(item['market']);
   if (target_element) {
-    // Clean strings
+    // Clean strings to prevent layout breaking
     var title = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) { return '&#'+i.charCodeAt(0)+';'; });
     var link = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) { return '&#'+i.charCodeAt(0)+';'; });
     
@@ -19,44 +19,46 @@ function add_listing(item) {
 
 function get_marketplaces() {
   return [
-    // 1. API / SPECIAL FORMATS (Fetched via Proxy)
-    {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'trocador_api'},
-    {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'bounties_api'},
+    // --- 1. SPECIAL & BLOCKED FEEDS (Routed via RSS2JSON) ---
+    // These feeds often block standard proxies or return complex XML. 
+    // We use rss2json to convert them to simple JSON.
     
-    // 2. RSS2JSON BYPASS 
-    // using rss2json.com to handle strict XML/RSS feeds that block standard proxies or fail parsing
+    // Twitter/X (Using stable Nitter instance)
+    {'name': 'twitter_monero', 'feed': 'https://nitter.poast.org/monero/rss', 'format': 'rss2json'},
+    
+    // Telegram (Using your RSS.app link)
+    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss2json'},
+    
+    // Other strict feeds
     {'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss2json'},
     {'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss2json'},
     {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss2json'},
     {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'rss2json'},
 
-    // 3. STANDARD SCRAPERS (Fetched via Proxy)
+    // --- 2. APIs (Proxied) ---
+    {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'trocador_api'},
+    {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'bounties_api'},
+
+    // --- 3. HTML SCRAPERS (Proxied) ---
     {'name': 'blockchain_stats', 'feed': 'https://xmrchain.net/', 'format': 'scraper'},
     {'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'},
     {'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'},
     {'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'},
 
-    // 4. STANDARD RSS (Fetched via Proxy)
+    // --- 4. STANDARD RSS (Proxied) ---
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
     {'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'},
     {'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'},
     {'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'},
     {'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'},
     {'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'},
-    {'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'},
-    
-    // 5. SOCIALS
-    // Using a stable Nitter instance
-    {'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'}, 
-    // Using the RSS.app feed you provided
-    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'} 
+    {'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'}
   ];
 }
 
 async function fetch_url(url, type) {
-  // STRATEGY A: RSS2JSON (Bypasses proxies entirely for XML/RSS)
+  // STRATEGY A: RSS2JSON (Best for Twitter, Telegram, and blocked sites)
   if (type === 'rss2json') {
-    // We use the public rss2json API to parse the feed for us.
     const apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url);
     try {
         const res = await fetch(apiUrl);
@@ -77,8 +79,7 @@ async function fetch_url(url, type) {
       const res = await fetch(target, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const text = await res.text();
-        // Validation: Ensure we didn't get an HTML error page when expecting XML/JSON
-        if (text && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
+        if (text && !text.includes('Access Denied') && !text.includes('Cloudflare')) {
           return text;
         }
       }
@@ -99,7 +100,12 @@ document.body.onload = function() {
         const json = JSON.parse(text);
         if (json.items) {
           json.items.slice(0, 6).forEach(i => {
-            add_listing({"title": i.title, "link": i.link, "market": market.name});
+            var t = i.title;
+            // Clean up Twitter titles (remove markup, shorten)
+            if (market.name === 'twitter_monero') {
+                 t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+            }
+            add_listing({"title": t, "link": i.link, "market": market.name});
           });
         }
       }
@@ -161,8 +167,6 @@ document.body.onload = function() {
             var t = i.title;
             // Calendar cleanup
             if (market.name === 'events_calendar' && t.includes(' scheduled for ')) t = t.split(' scheduled for ')[0];
-            // Twitter/Telegram cleanup
-            if (market.name.includes('twitter') || market.name.includes('telegram')) t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
             
             add_listing({"title": t, "link": i.link?._href || i.link, "market": market.name});
           });
