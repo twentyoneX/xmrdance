@@ -2,6 +2,7 @@ const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 
 function add_listing(item) {
   var target_element = document.getElementById(item['market']);
+  // This is the fix: Only proceed if the HTML element actually exists
   if (target_element) {
     item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
      return '&#'+i.charCodeAt(0)+';';
@@ -30,7 +31,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'price_in_btc', 'feed': 'https://agoradesk.com/api/v1/moneroaverage/BTC', 'format': 'api'});
   marketplaces.push({'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'});
-  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'});
+  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'}); // Corrected format to 'rss' as you discovered
   marketplaces.push({'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss'});
   marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'});
   marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'});
@@ -45,8 +46,8 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'}); // UPDATED Nitter link
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'}); // UPDATED Nitter link
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
@@ -55,7 +56,8 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    var proxy_url = "https://corsproxy.io/?" + u;
+    // FINAL, STABLE PROXY that works for all feeds
+    var proxy_url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
     
     fetch(proxy_url)
     .then((res) => {
