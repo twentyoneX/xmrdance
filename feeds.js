@@ -41,18 +41,18 @@ function get_marketplaces() {
   return marketplaces;
 }
 
-// --- FINAL ROBUST FETCH FUNCTION WITH 3 FALLBACKS ---
+// --- FINAL ROBUST FETCH FUNCTION WITH REORDERED FALLBACKS ---
 async function fetch_with_fallbacks(url) {
   const proxies = [
+    "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url=",
-    "https://api.codetabs.com/v1/proxy?quest=",
-    "https://corsproxy.io/?"
+    "https://api.codetabs.com/v1/proxy?quest="
   ];
 
   for (const proxy of proxies) {
     const fetch_url = proxy.includes('corsproxy.io') ? proxy + url : proxy + encodeURIComponent(url);
     try {
-      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(5000) }); // 5-second timeout
+      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(8000) }); // 8-second timeout
       if (response.ok) {
         const text = await response.text();
         if (text && text.trim() !== '') {
