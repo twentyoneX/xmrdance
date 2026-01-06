@@ -159,19 +159,6 @@ document.body.onload = function(){
             var doc = DOMPARSER(xml_text, "text/xml");
             var x2js = new X2JS();
             var json_text = x2js.xml2json(doc);
-            if(market['name'] == 'revuo_monero') {
-  console.log('=== REVUO DEBUG ===');
-  console.log('Raw XML (first 500 chars):', xml_text.substring(0, 500));
-  console.log('Parsed JSON:', json_text);
-  console.log('Has rss?', json_text.rss ? 'YES' : 'NO');
-  console.log('Has rss.channel?', json_text.rss?.channel ? 'YES' : 'NO');
-  console.log('Has rss.channel.item?', json_text.rss?.channel?.item ? 'YES' : 'NO');
-  if(json_text.rss?.channel?.item) {
-    console.log('Items is array?', Array.isArray(json_text.rss.channel.item));
-    console.log('First item:', json_text.rss.channel.item[0] || json_text.rss.channel.item);
-  }
-  console.log('===================');
-}
             var items = [];
             
             if (market['format'] == 'atom' && json_text.feed?.entry) {
