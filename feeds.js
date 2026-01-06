@@ -33,7 +33,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'});
   marketplaces.push({'name': 'revuo_monero', 'feed': 'https://revuo-xmr.com/atom.xml', 'format': 'atom'});
   marketplaces.push({'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss'});
-  marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=atom10', 'format': 'rss'});
+  marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'});
   marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'});
   marketplaces.push({'name': 'monero_standard', 'feed': 'https://localmonero.co/static/rss/the-monero-standard/feed.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api'});
@@ -48,7 +48,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_accepted_here', 'feed': 'https://acceptedhere.io/catalog/currency/xmr/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
-  marketplace.push({'name': 'monero_observer_market', 'feed': 'https://monero.observer/feed-messages.xml', 'format': 'rss'}); // This feed has no home in the HTML, so we comment it out.
+  // marketplace.push({'name': 'monero_observer_market', 'feed': 'https://monero.observer/feed-messages.xml', 'format': 'rss'}); // This feed has no home in the HTML, so we comment it out.
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://tg.i-c-a.su/rss/moneromarket?limit=50', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.net/monero/rss', 'format': 'rss'});
