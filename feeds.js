@@ -39,17 +39,19 @@ function get_marketplaces() {
 }
 
 async function fetch_with_fallbacks(url) {
+  // Ordered list: Allorigins is often more permissive for RSS/XML, Corsproxy is faster but blocks some.
   const proxies = [
     "https://api.allorigins.win/raw?url=",
-    "https://api.codetabs.com/v1/proxy?quest=",
-    "https://corsproxy.io/?"
+    "https://corsproxy.io/?",
+    "https://api.codetabs.com/v1/proxy?quest="
   ];
   for (const proxy of proxies) {
     try {
-      const response = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+      const fetch_url = proxy.includes('corsproxy.io') ? proxy + url : proxy + encodeURIComponent(url);
+      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(10000) });
       if (response.ok) {
         const text = await response.text();
-        if (text && !text.includes('Access Denied') && !text.includes('Cloudflare')) return text;
+        if (text && text.trim().length > 0 && !text.includes('Access Denied') && !text.includes('Cloudflare')) return text;
       }
     } catch (e) {}
   }
@@ -80,24 +82,32 @@ document.body.onload = function(){
           $('#stats_block_height').text((/as of (.*?) block/.exec(st) || [])[1] || 'N/A');
           $('#stats_hash_rate').text(((/Hash rate: (.*?) /.exec(st) || [])[1] || 'N/A') + ' GH/s');
           $('#stats_fee').text(((/Fee per byte: (.*?) /.exec(st) || [])[1] || 'N/A') + ' XMR');
+          $('#stats_emission').text(((/Monero emission (.*?) is (.*?) /.exec(st) || [])[2] || 'N/A') + ' XMR');
         }
       } else if(market.format == 'api') {
         var json = JSON.parse(xml_text);
-        if(market.name == 'monero_bounties') {
-          json.slice(0, 6).forEach(i => add_listing({"title": i.title, "link": 'https://bounties.monero.social/posts/'+i.id, "market": market.name}));
-        } else if(market.name == 'trocador_price') {
-          // Robust array check for Trocador
-          const data = Array.isArray(json) ? json : (json.contents ? JSON.parse(json.contents) : null);
-          if (data) {
-            const xmr = data.find(c => c.ticker === 'XMR');
-            const btc = data.find(c => c.ticker === 'BTC');
-            if(xmr) { 
-              $('#header_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
-              $('#box_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
+        
+        // --- TROCADOR FIX: Handle if proxy wraps response in "contents" string ---
+        if(market.name == 'trocador_price') {
+            if (json.contents && typeof json.contents === 'string') {
+                try { json = JSON.parse(json.contents); } catch(e){}
             }
-            if(xmr && btc) $('#box_monero_btc_price').text((xmr.usd_price/btc.usd_price).toFixed(6)+' BTC');
+            if(Array.isArray(json)) {
+                const xmr = json.find(c => c.ticker === 'XMR');
+                const btc = json.find(c => c.ticker === 'BTC');
+                if(xmr) { 
+                  $('#header_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
+                  $('#box_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
+                }
+                if(xmr && btc) $('#box_monero_btc_price').text((xmr.usd_price/btc.usd_price).toFixed(6)+' BTC');
+            }
+        } 
+        // --- END TROCADOR FIX ---
+        else if(market.name == 'monero_bounties') {
+          if (json.slice) {
+             json.slice(0, 6).forEach(i => add_listing({"title": i.title, "link": 'https://bounties.monero.social/posts/'+i.id, "market": market.name}));
           }
-        }
+        } 
       } else {
         var x2js = new X2JS();
         var data = x2js.xml2json(DOMPARSER(xml_text, "text/xml"));
@@ -111,6 +121,10 @@ document.body.onload = function(){
           });
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      // Hide box ONLY if all fallbacks fail
+      var el = document.getElementById(market.name+'_box');
+      if(el) el.style.display = 'none';
+    }
   });
 }
