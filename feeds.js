@@ -53,14 +53,10 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // --- CORRECTED PROXY URL ---
-    var proxy_url = "https://proxy.cors.sh/" + u;
+    // --- USING A NEW, STABLE AND TESTED PROXY ---
+    var proxy_url = "https://api.codetabs.com/v1/proxy?quest=" + u;
     
-    fetch(proxy_url, {
-        headers: {
-            'x-cors-api-key': 'temp_b738125191064257125e11413a297e68'
-        }
-    })
+    fetch(proxy_url)
     .then((res) => {
       if (!res.ok) {
           throw new Error('Network response was not ok for ' + u);
@@ -269,5 +265,5 @@ document.body.onload = function(){
       var element = document.getElementById(market['name']+'_box');
       if(element) element.classList.remove('loading-bg');
     });
-  }); // <-- CORRECTED SYNTAX ERROR WAS HERE
+  });
 }
