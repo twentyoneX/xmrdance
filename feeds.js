@@ -35,7 +35,6 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  // --- FINAL FIX: Using the stable Nitter instance you found ---
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.tiekoetter.com/monero/rss', 'format': 'rss'});
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.tiekoetter.com/monero_market/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
@@ -73,7 +72,15 @@ document.body.onload = function(){
     var u = market['feed'];
     
     try {
-      const xml_text = await fetch_with_fallbacks(u);
+      let xml_text;
+      // --- FINAL FIX: Fetch Trocador directly, use proxy for everything else ---
+      if (market['name'] === 'trocador_price') {
+        const response = await fetch(u);
+        if (!response.ok) throw new Error("Trocador API fetch failed");
+        xml_text = await response.text();
+      } else {
+        xml_text = await fetch_with_fallbacks(u);
+      }
       
       var listings = [];
       
@@ -161,9 +168,8 @@ document.body.onload = function(){
                   }
                 }
               }
-              // Shorten Twitter/Nitter feed titles
               if (market['name'] == 'twitter_monero' || market['name'] == 'telegram_monero_market') {
-                  title = title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+                  title = item.title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
               }
               var link = item.link || '';
               if(link) listings.push({ "title": title, "link": link, "market": market['name'] });
@@ -176,7 +182,7 @@ document.body.onload = function(){
       }
 
     } catch(error) {
-      console.error('Error processing', market['name'], ':', error);
+      console.error('Error processing or fetching', market['name'], ':', error);
       var element = document.getElementById(market['name']+'_box');
       if(element) element.classList.remove('loading-bg');
     }
