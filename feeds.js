@@ -39,7 +39,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api'});
   marketplaces.push({'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'});
-  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://forum.monerochan.news/latest/', 'format': 'scraper'});
+  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://monerochan.news/rss.xml', 'format': 'scraper'});
   marketplaces.push({'name': 'monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
