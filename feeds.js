@@ -41,17 +41,18 @@ function get_marketplaces() {
   return marketplaces;
 }
 
-// --- ROBUST FETCH FUNCTION WITH FALLBACKS ---
+// --- FINAL ROBUST FETCH FUNCTION WITH 3 FALLBACKS ---
 async function fetch_with_fallbacks(url) {
   const proxies = [
-    "https://corsproxy.io/?",
-    "https://api.allorigins.win/raw?url="
+    "https://api.allorigins.win/raw?url=",
+    "https://api.codetabs.com/v1/proxy?quest=",
+    "https://corsproxy.io/?"
   ];
 
   for (const proxy of proxies) {
     const fetch_url = proxy.includes('corsproxy.io') ? proxy + url : proxy + encodeURIComponent(url);
     try {
-      const response = await fetch(fetch_url);
+      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(5000) }); // 5-second timeout
       if (response.ok) {
         const text = await response.text();
         if (text && text.trim() !== '') {
@@ -73,7 +74,6 @@ document.body.onload = function(){
     
     try {
       let xml_text;
-      // --- FINAL FIX: Fetch Trocador directly, use proxy for everything else ---
       if (market['name'] === 'trocador_price') {
         const response = await fetch(u);
         if (!response.ok) throw new Error("Trocador API fetch failed");
@@ -89,12 +89,12 @@ document.body.onload = function(){
         var scraper_doc = parser.parseFromString(xml_text, "text/html");
         
         if(market['name'] == 'ccs') {
-          $(scraper_doc).find('.fund-required a').each(function() {
+          $(scraper_doc).find('.fund-required a').slice(0, 6).each(function() {
             var title = $(this).find('h3').text()+' - '+$(this).find('.progress-number-funded').text()+'/'+$(this).find('.progress-number-goal').text()+' XMR';
             listings.push({ "title": title, "link": 'https://ccs.getmonero.org'+$(this).attr('href'), "market": market['name'] });
           });
         } else if(market['name'] == 'monerochan_news') {
-          $(scraper_doc).find('a[href*="article"]').each(function() {
+          $(scraper_doc).find('a[href*="article"]').slice(0, 6).each(function() {
             listings.push({ "title": $(this).find('h1').text(), "link": 'https://monerochan.news'+$(this).attr('href'), "market": market['name'] });
           });
         } else if(market['name'] == 'monerica') {
@@ -112,7 +112,6 @@ document.body.onload = function(){
           $('#stats_emission').text(((/Monero emission (.*?) is (.*?) /.exec(search_text) || [])[2] || 'N/A') + ' XMR');
         }
         
-        listings = listings.slice(0, 6);
         listings.forEach((item) => add_listing(item));
         
       } else if(market['format'] == 'api') {
@@ -123,16 +122,18 @@ document.body.onload = function(){
           });
           listings.forEach((item) => add_listing(item));
         } else if(market['name'] == 'trocador_price') {
-          const monero_data = json_text.find(coin => coin.ticker === 'XMR');
-          const bitcoin_data = json_text.find(coin => coin.ticker === 'BTC');
-          if (monero_data) {
-            const usd_price = parseFloat(monero_data.usd_price).toFixed(2);
-            $('#header_monero_usd_price').text('$'+usd_price);
-            $('#box_monero_usd_price').text('$'+usd_price);
-          }
-          if (monero_data && bitcoin_data) {
-            const btc_price = (parseFloat(monero_data.usd_price) / parseFloat(bitcoin_data.usd_price)).toFixed(8);
-            $('#box_monero_btc_price').text(btc_price+' BTC');
+          if (Array.isArray(json_text)) {
+            const monero_data = json_text.find(coin => coin.ticker === 'XMR');
+            const bitcoin_data = json_text.find(coin => coin.ticker === 'BTC');
+            if (monero_data) {
+              const usd_price = parseFloat(monero_data.usd_price).toFixed(2);
+              $('#header_monero_usd_price').text('$'+usd_price);
+              $('#box_monero_usd_price').text('$'+usd_price);
+            }
+            if (monero_data && bitcoin_data) {
+              const btc_price = (parseFloat(monero_data.usd_price) / parseFloat(bitcoin_data.usd_price)).toFixed(8);
+              $('#box_monero_btc_price').text(btc_price+' BTC');
+            }
           }
         }
       } else { // RSS/Atom feeds
@@ -149,13 +150,13 @@ document.body.onload = function(){
         
         if (items.length > 0) {
           if (market['format'] == 'atom') {
-            items.forEach((item) => {
+            items.slice(0, 6).forEach((item) => {
               if(!item.title) return;
               var link = item.link?._href || item.link || '';
               if(link) listings.push({ "title": item.title, "link": link, "market": market['name'] });
             });
           } else if (market['format'] == 'rss') {
-            items.forEach((item) => {
+            items.slice(0, 6).forEach((item) => {
               if (!item.title) return;
               var title = item.title;
               if (market['name'] == 'events_calendar' && title.includes(' scheduled for ')) {
@@ -177,7 +178,6 @@ document.body.onload = function(){
           }
         }
         
-        listings = listings.slice(0, 6);
         listings.forEach((item) => add_listing(item));
       }
 
