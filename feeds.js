@@ -31,7 +31,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'price_in_btc', 'feed': 'https://agoradesk.com/api/v1/moneroaverage/BTC', 'format': 'api'});
   marketplaces.push({'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'});
-  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'}); // Corrected format to 'rss'
+  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss'});
   marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'});
   marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'});
@@ -56,17 +56,17 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // Using a single, compatible proxy
+    // Reverting to the proxy you confirmed as working
     var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
-    .then(res => {
+    .then((res) => {
       if (!res.ok) {
           throw new Error('Network response was not ok for ' + u);
       }
       return res.text();
     })
-    .then(xml_text => {
+    .then((xml_text) => {
         var listings = [];
         try {
           if (xml_text.trim() === '') {
