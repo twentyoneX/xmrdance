@@ -35,8 +35,9 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://rss-bridge.org/bridge01/?action=display&bridge=Twitter&context=Username&u=monero&format=Atom', 'format': 'atom'});
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'});
+  // --- FINAL FIX: Using the stable Nitter instance you found ---
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.tiekoetter.com/monero/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.tiekoetter.com/monero_market/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
@@ -45,7 +46,7 @@ function get_marketplaces() {
 async function fetch_with_fallbacks(url) {
   const proxies = [
     "https://corsproxy.io/?",
-    "https://api.codetabs.com/v1/proxy?quest="
+    "https://api.allorigins.win/raw?url="
   ];
 
   for (const proxy of proxies) {
@@ -159,6 +160,10 @@ document.body.onload = function(){
                       title = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}: ${parts[0]}`;
                   }
                 }
+              }
+              // Shorten Twitter/Nitter feed titles
+              if (market['name'] == 'twitter_monero' || market['name'] == 'telegram_monero_market') {
+                  title = title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
               }
               var link = item.link || '';
               if(link) listings.push({ "title": title, "link": link, "market": market['name'] });
