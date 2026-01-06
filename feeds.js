@@ -46,8 +46,8 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.it/monero/rss', 'format': 'rss'}); // UPDATED Nitter link
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.it/monero_market/rss', 'format': 'rss'}); // UPDATED Nitter link
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.net/monero/rss', 'format': 'rss'}); // UPDATED to a working Nitter instance
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.net/monero_market/rss', 'format': 'rss'}); // UPDATED to a working Nitter instance
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
@@ -56,7 +56,8 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    var proxy_url = "https://corsproxy.io/?" + u;
+    // Using a more compatible proxy
+    var proxy_url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
     
     fetch(proxy_url)
     .then((res) => {
