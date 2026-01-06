@@ -31,19 +31,20 @@ function get_marketplaces() {
   marketplaces.push({'name': 'price_in_btc', 'feed': 'https://agoradesk.com/api/v1/moneroaverage/BTC', 'format': 'api'});
   marketplaces.push({'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'});
-  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'atom'}); // RE-ADDED
+  marketplaces.push({'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'atom'});
   marketplaces.push({'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss'});
   marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'});
-  marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'}); // RE-ADDED
+  marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'});
   marketplaces.push({'name': 'monero_standard', 'feed': 'https://localmonero.co/static/rss/the-monero-standard/feed.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api'});
   marketplaces.push({'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'});
-  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://monerochan.news/rss.xml', 'format': 'scraper'});
+  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://forum.monerochan.news/latest/', 'format': 'scraper'});
   marketplaces.push({'name': 'monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
+  marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'}); // REPLACED Bitejo with XMRBazaar
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.cz/monero/rss', 'format': 'rss'});
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.cz/monero_market/rss', 'format': 'rss'});
