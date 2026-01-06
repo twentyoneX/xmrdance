@@ -204,14 +204,30 @@ document.body.onload = function(){
                   var rss_push_listing = true;
                   var title = item.title;
                   
+                  // --- START OF THE FIX FOR EVENTS ---
                   if (market['name'] == 'events_calendar') {
-                    if (!title.includes(' scheduled for ')) return;
-                    var title_parts = title.split(' scheduled for ');
-                    var title_date_parts = title_parts[1].split(' ');
-                    var title_date = new Date(`${title_date_parts[1]} ${title_date_parts[0]}, ${title_date_parts[2]}`);
-                    if (title_date.toString() === 'Invalid Date' || (title_date.getTime() + 86400000) < new Date().getTime()) return;
-                    title = `${title_date.toLocaleString('default', { month: 'short' })} ${title_date.getDate()}: ${title_parts[0]}`;
+                    if (title.includes(' scheduled for ')) {
+                        var title_parts = title.split(' scheduled for ');
+                        var title_text = title_parts[0];
+                        var title_date_parts = title_parts[1].split(' ');
+                        
+                        // Handles dates like "7 Jun 2024"
+                        if (title_date_parts.length >= 3) {
+                            var title_date = new Date(`${title_date_parts[1]} ${title_date_parts[0]}, ${title_date_parts[2]}`);
+                            // Check if the date is valid, but DON'T check if it's in the past
+                            if (title_date.toString() !== 'Invalid Date') {
+                                title = `${title_date.toLocaleString('default', { month: 'short' })} ${title_date.getDate()}: ${title_text}`;
+                            } else {
+                                // If parsing fails, just use the event name
+                                title = title_text;
+                            }
+                        } else {
+                            // Handles imprecise dates like "November 2024" by just using the event name
+                            title = title_text;
+                        }
+                    }
                   }
+                  // --- END OF THE FIX FOR EVENTS ---
                   
                   if (market['name'] == 'telegram_monero_market') { // Now powered by Twitter
                     var clean_title = item.title.replace(/<[^>]*>?/gm, '');
