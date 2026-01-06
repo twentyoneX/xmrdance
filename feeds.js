@@ -7,7 +7,7 @@ function add_listing(item) {
     item['link'] = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) { return '&#'+i.charCodeAt(0)+';'; });
     var listing_entry = document.createElement('div');
     listing_entry.innerHTML += '<li class="listing-title"><a href="'+item['link']+'" title="'+item['title']+'">'+item['title']+'</a></li>';
-    listing_entry.setAttribute('data-timestamp', item['timestamp']);
+    listing_entry.setAttribute('data-timestamp', item['timestamp'] || Date.now());
     listing_entry.className = 'single_listing';
     target_element.appendChild(listing_entry);
     var target_box = document.getElementById(item['market']+'_box');
@@ -27,6 +27,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss'});
   marketplaces.push({'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'});
   marketplaces.push({'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss'});
+  marketplaces.push({'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss'});
   marketplaces.push({'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api'});
   marketplaces.push({'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'});
@@ -35,13 +36,12 @@ function get_marketplaces() {
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.privacyredirect.com//monero/rss', 'format': 'rss'});
-  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacyredirect.com/monero_market/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://nitter.tiekoetter.com/monero/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.tiekoetter.com/monero_market/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
 }
 
-// --- FINAL ROBUST FETCH FUNCTION WITH REORDERED FALLBACKS ---
 async function fetch_with_fallbacks(url) {
   const proxies = [
     "https://corsproxy.io/?",
@@ -52,36 +52,26 @@ async function fetch_with_fallbacks(url) {
   for (const proxy of proxies) {
     const fetch_url = proxy.includes('corsproxy.io') ? proxy + url : proxy + encodeURIComponent(url);
     try {
-      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(8000) }); // 8-second timeout
+      const response = await fetch(fetch_url, { signal: AbortSignal.timeout(8000) });
       if (response.ok) {
         const text = await response.text();
-        if (text && text.trim() !== '') {
-            console.log(`Success with proxy: ${proxy.split('?')[0]} for ${url}`);
+        // Basic check if we got HTML when we expected XML/RSS
+        if (text && text.trim() !== '' && !text.includes('Access Denied') && !text.includes('Cloudflare')) {
+            console.log(`Success with proxy: ${proxy} for ${url}`);
             return text;
         }
       }
-    } catch (error) {
-      console.log(`Proxy failed: ${proxy.split('?')[0]} for ${url}`);
-    }
+    } catch (e) {}
   }
-  throw new Error(`All proxies failed for URL: ${url}`);
+  throw new Error(`All proxies failed for: ${url}`);
 }
 
 document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach(async (market) => {
     var u = market['feed'];
-    
     try {
-      let xml_text;
-      if (market['name'] === 'trocador_price') {
-        const response = await fetch(u);
-        if (!response.ok) throw new Error("Trocador API fetch failed");
-        xml_text = await response.text();
-      } else {
-        xml_text = await fetch_with_fallbacks(u);
-      }
-      
+      const xml_text = await fetch_with_fallbacks(u);
       var listings = [];
       
       if(market['format'] == 'scraper') {
@@ -111,7 +101,6 @@ document.body.onload = function(){
           $('#stats_fee').text(((/Fee per byte: (.*?) /.exec(search_text) || [])[1] || 'N/A') + ' XMR');
           $('#stats_emission').text(((/Monero emission (.*?) is (.*?) /.exec(search_text) || [])[2] || 'N/A') + ' XMR');
         }
-        
         listings.forEach((item) => add_listing(item));
         
       } else if(market['format'] == 'api') {
@@ -136,12 +125,11 @@ document.body.onload = function(){
             }
           }
         }
-      } else { // RSS/Atom feeds
+      } else { // RSS/Atom
         var doc = DOMPARSER(xml_text, "text/xml");
         var x2js = new X2JS();
         var json_text = x2js.xml2json(doc);
         var items = [];
-        
         if (market['format'] == 'atom' && json_text.feed?.entry) {
           items = Array.isArray(json_text.feed.entry) ? json_text.feed.entry : [json_text.feed.entry];
         } else if (market['format'] == 'rss' && json_text.rss?.channel?.item) {
@@ -149,42 +137,31 @@ document.body.onload = function(){
         }
         
         if (items.length > 0) {
-          if (market['format'] == 'atom') {
-            items.slice(0, 6).forEach((item) => {
-              if(!item.title) return;
-              var link = item.link?._href || item.link || '';
-              if(link) listings.push({ "title": item.title, "link": link, "market": market['name'] });
-            });
-          } else if (market['format'] == 'rss') {
-            items.slice(0, 6).forEach((item) => {
-              if (!item.title) return;
-              var title = item.title;
-              if (market['name'] == 'events_calendar' && title.includes(' scheduled for ')) {
-                var parts = title.split(' scheduled for ');
-                var date_parts = parts[1].split(' ');
-                if (date_parts.length >= 3) {
-                  var date = new Date(`${date_parts[1]} ${date_parts[0]}, ${date_parts[2]}`);
-                  if (date.toString() !== 'Invalid Date') {
-                      title = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}: ${parts[0]}`;
-                  }
-                }
-              }
-              if (market['name'] == 'twitter_monero' || market['name'] == 'telegram_monero_market') {
-                  title = item.title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
-              }
-              var link = item.link || '';
-              if(link) listings.push({ "title": title, "link": link, "market": market['name'] });
-            });
-          }
+          items.slice(0, 6).forEach((item) => {
+            if(!item.title) return;
+            var title = item.title;
+            var link = item.link?._href || item.link || '';
+            if (market['name'] == 'events_calendar' && title.includes(' scheduled for ')) {
+               var parts = title.split(' scheduled for ');
+               var dp = parts[1].split(' ');
+               if (dp.length >= 3) {
+                 var d = new Date(`${dp[1]} ${dp[0]}, ${dp[2]}`);
+                 if (d.toString() !== 'Invalid Date') title = `${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}: ${parts[0]}`;
+               }
+            }
+            if (market['name'].includes('twitter') || market['name'].includes('telegram')) {
+                title = title.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+            }
+            if(link) listings.push({ "title": title, "link": link, "market": market['name'] });
+          });
         }
-        
         listings.forEach((item) => add_listing(item));
       }
-
     } catch(error) {
-      console.error('Error processing or fetching', market['name'], ':', error);
+      console.error('Final Failure for', market['name']);
+      // HIDE THE BOX IF IT FAILED COMPLETELY
       var element = document.getElementById(market['name']+'_box');
-      if(element) element.classList.remove('loading-bg');
+      if(element) element.style.display = 'none';
     }
   });
 }
