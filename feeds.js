@@ -39,7 +39,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api'});
   marketplaces.push({'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'});
-  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://forum.monerochan.news/latest/', 'format': 'scraper'});
+  marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'}); // REPLACED with Monero.town
   marketplaces.push({'name': 'monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
@@ -56,7 +56,6 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // --- SWITCHING BACK TO THE MOST STABLE PROXY ---
     var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
@@ -91,14 +90,6 @@ document.body.onload = function(){
                 var title = $(this).find('h1').text();
                 var timestamp = (new Date().getTime()/1000);
                 var link = 'https://monerochan.news'+$(this).attr('href');
-                listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
-              });
-            } else if(market['name'] == 'monerochan_forum') {
-              var ccs_links = $(scraper_doc).find('a.title.raw-topic-link');
-              ccs_links.each(function() {
-                var title = $(this).text();
-                var timestamp = (new Date().getTime()/1000);
-                var link = $(this).attr('href');
                 listings.push({ "title": title, "timestamp": timestamp, "link": link, "market": market['name'] });
               });
             } else if(market['name'] == 'monero_market_io') {
