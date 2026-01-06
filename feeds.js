@@ -44,8 +44,8 @@ function get_marketplaces() {
 // --- ROBUST FETCH FUNCTION WITH FALLBACKS ---
 async function fetch_with_fallbacks(url) {
   const proxies = [
-    "https://api.allorigins.win/raw?url=",
     "https://corsproxy.io/?",
+    "https://api.codetabs.com/v1/proxy?quest="
   ];
 
   for (const proxy of proxies) {
