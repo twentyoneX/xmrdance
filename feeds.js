@@ -1,19 +1,26 @@
 const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 
 function add_listing(item) {
-  // Ensure title and link are strings before trying to replace
-  item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
-   return '&#'+i.charCodeAt(0)+';';
-  });
-  item['link'] = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
-   return '&#'+i.charCodeAt(0)+';';
-  });
-  var listing_entry = document.createElement('div');
-  listing_entry.innerHTML += '<li class="listing-title"><a href="'+item['link']+'" title="'+item['title']+'">'+item['title']+'</a></li>';
-  listing_entry.setAttribute('data-timestamp', item['timestamp']);
-  listing_entry.className = 'single_listing';
-  document.getElementById(item['market']).appendChild(listing_entry);
-  document.getElementById(item['market']+'_box').classList.remove('loading-bg');
+  var target_element = document.getElementById(item['market']);
+  // --- This is the fix: Only proceed if the HTML element actually exists ---
+  if (target_element) {
+    item['title'] = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
+     return '&#'+i.charCodeAt(0)+';';
+    });
+    item['link'] = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) {
+     return '&#'+i.charCodeAt(0)+';';
+    });
+    var listing_entry = document.createElement('div');
+    listing_entry.innerHTML += '<li class="listing-title"><a href="'+item['link']+'" title="'+item['title']+'">'+item['title']+'</a></li>';
+    listing_entry.setAttribute('data-timestamp', item['timestamp']);
+    listing_entry.className = 'single_listing';
+    target_element.appendChild(listing_entry);
+    
+    var target_box = document.getElementById(item['market']+'_box');
+    if (target_box) {
+        target_box.classList.remove('loading-bg');
+    }
+  }
 }
 
 function get_marketplaces() {
