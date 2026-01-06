@@ -3,7 +3,7 @@ const DOMPARSER = new DOMParser().parseFromString.bind(new DOMParser());
 function add_listing(item) {
   var target_element = document.getElementById(item['market']);
   if (target_element) {
-    // Clean title and link
+    // Clean strings
     var title = (item['title'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) { return '&#'+i.charCodeAt(0)+';'; });
     var link = (item['link'] || '').toString().replace(/[\u00A0-\u9999<>\&]/gim, function(i) { return '&#'+i.charCodeAt(0)+';'; });
     
@@ -19,57 +19,55 @@ function add_listing(item) {
 
 function get_marketplaces() {
   return [
-    // API / SPECIAL FORMATS
+    // 1. API / SPECIAL FORMATS (Fetched via Proxy)
     {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'trocador_api'},
     {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'bounties_api'},
     
-    // RSS2JSON BYPASS (For feeds that block proxies)
+    // 2. RSS2JSON BYPASS 
+    // using rss2json.com to handle strict XML/RSS feeds that block standard proxies or fail parsing
     {'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss2json'},
     {'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss2json'},
+    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss2json'},
+    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'rss2json'},
 
-    // STANDARD SCRAPERS
+    // 3. STANDARD SCRAPERS (Fetched via Proxy)
     {'name': 'blockchain_stats', 'feed': 'https://xmrchain.net/', 'format': 'scraper'},
     {'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'},
     {'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'},
     {'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'},
-    {'name': 'monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'},
 
-    // STANDARD RSS/ATOM (Via Proxy)
+    // 4. STANDARD RSS (Fetched via Proxy)
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
     {'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'},
     {'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'},
     {'name': 'monero_research', 'feed': 'https://moneroresearch.info/index.php?action=rss_RSS_CORE&method=rss20', 'format': 'rss'},
-    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss'},
-    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'},
     {'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'},
     {'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'},
     {'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'},
-    {'name': 'twitter_monero', 'feed': 'https://nitter.tiekoetter.com/monero/rss', 'format': 'rss'},
-    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'}
+    
+    // 5. SOCIALS
+    // Using a stable Nitter instance
+    {'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'}, 
+    // Using the RSS.app feed you provided
+    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'} 
   ];
 }
 
 async function fetch_url(url, type) {
-  // Strategy: Try direct first for APIs, then proxies for others
-  if (type === 'trocador_api') {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return await res.text();
-    } catch(e) { console.log('Direct fetch failed, trying proxies...'); }
-  }
-
-  // RSS2JSON Strategy
+  // STRATEGY A: RSS2JSON (Bypasses proxies entirely for XML/RSS)
   if (type === 'rss2json') {
+    // We use the public rss2json API to parse the feed for us.
     const apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url);
-    const res = await fetch(apiUrl);
-    if (res.ok) return await res.text();
-    throw new Error('RSS2JSON failed');
+    try {
+        const res = await fetch(apiUrl);
+        if (res.ok) return await res.text();
+    } catch(e) { console.log("RSS2JSON failed for " + url); }
   }
 
-  // Proxy Strategy
+  // STRATEGY B: PROXY FALLBACK (For everything else)
   const proxies = [
-    "https://api.allorigins.win/raw?url=",
     "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url=",
     "https://api.codetabs.com/v1/proxy?quest="
   ];
 
@@ -79,14 +77,14 @@ async function fetch_url(url, type) {
       const res = await fetch(target, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const text = await res.text();
-        // Validate we didn't get an error page
+        // Validation: Ensure we didn't get an HTML error page when expecting XML/JSON
         if (text && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
           return text;
         }
       }
     } catch (e) { }
   }
-  throw new Error('All proxies failed');
+  throw new Error('All proxies failed for ' + url);
 }
 
 document.body.onload = function() {
@@ -108,7 +106,7 @@ document.body.onload = function() {
       // 2. Trocador API
       else if (market.format === 'trocador_api') {
         var json = JSON.parse(text);
-        if (json.contents) { try { json = JSON.parse(json.contents); } catch(e){} } // Handle proxy wrapper
+        if (json.contents) { try { json = JSON.parse(json.contents); } catch(e){} } // Handle allorigins wrapper
         
         if (Array.isArray(json)) {
           const xmr = json.find(c => c.ticker === 'XMR');
@@ -142,11 +140,6 @@ document.body.onload = function() {
           $(doc).find('li a').slice(14, 20).each(function() {
             add_listing({"title": $(this).text(), "link": $(this).attr('href'), "market": market.name});
           });
-        } else if (market.name === 'monero_market_io') {
-           $(doc).find('a[href*="listing"]').slice(0, 6).each(function() {
-             var title = $(this).find('.desc').text();
-             if(title) add_listing({"title": title, "link": 'https://moneromarket.io'+$(this).attr('href'), "market": market.name});
-           });
         } else if (market.name === 'blockchain_stats') {
           var st = $(doc).text();
           $('#stats_version').text((/GUI (.*?) /.exec(st)||[])[1]||'N/A');
@@ -168,7 +161,7 @@ document.body.onload = function() {
             var t = i.title;
             // Calendar cleanup
             if (market.name === 'events_calendar' && t.includes(' scheduled for ')) t = t.split(' scheduled for ')[0];
-            // Twitter cleanup
+            // Twitter/Telegram cleanup
             if (market.name.includes('twitter') || market.name.includes('telegram')) t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
             
             add_listing({"title": t, "link": i.link?._href || i.link, "market": market.name});
