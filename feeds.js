@@ -40,8 +40,6 @@ function get_marketplaces() {
   marketplaces.push({'name': 'ccs', 'feed': 'https://ccs.getmonero.org/funding-required/', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_news', 'feed': 'https://monerochan.news', 'format': 'scraper'});
   marketplaces.push({'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'});
-  marketplaces.push({'name': 'monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
-  marketplaces.push({'name': 'count_monero_market_io', 'feed': 'https://moneromarket.io', 'format': 'scraper'});
   marketplaces.push({'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'count_monerica', 'feed': 'https://monerica.com', 'format': 'scraper'});
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
@@ -56,7 +54,6 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // Reverting to the proxy you confirmed as working
     var proxy_url = "https://corsproxy.io/?" + u;
     
     fetch(proxy_url)
@@ -89,25 +86,12 @@ document.body.onload = function(){
                 var title = $(this).find('h1').text();
                 listings.push({ "title": title, "timestamp": (new Date().getTime()/1000), "link": 'https://monerochan.news'+$(this).attr('href'), "market": market['name'] });
               });
-            } else if(market['name'] == 'monero_market_io') {
-              var ccs_links = $(scraper_doc).find('a[href*="listing"]');
-              ccs_links.each(function() {
-                var title = $(this).find('.desc').text();
-                if(title) listings.push({ "title": title, "timestamp": (new Date().getTime()/1000), "link": 'https://moneromarket.io'+$(this).attr('href'), "market": market['name'] });
-              });
             } else if(market['name'] == 'monerica') {
               var ccs_links = $(scraper_doc).find('li a').slice(14, 20);
               ccs_links.each(function() {
                 var title = $(this).text();
                 listings.push({ "title": title, "timestamp": (new Date().getTime()/1000), "link": $(this).attr('href'), "market": market['name'] });
               });
-            } else if(market['name'] == 'count_monero_market_io') {
-              var market_total = 0;
-              $(scraper_doc).find('#categories a span').each(function() {
-                  var num = parseInt($(this).text().replace(/\D/g,''));
-                  if (!isNaN(num)) market_total += num;
-              });
-              if(market_total > 0) $('#monero_market_count').text(market_total);
             } else if(market['name'] == 'count_monerica') {
               var market_total = $(scraper_doc).find('li a').length;
               if(market_total > 0) $('#monerica_count').text(market_total);
