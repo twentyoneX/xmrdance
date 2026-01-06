@@ -46,7 +46,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   marketplaces.push({'name': 'twitter_monero', 'feed': 'https://rss.app/feed/SwTveSDXLTqWLHDb', 'format': 'rss'});
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://nitter.privacydev.net/monero_market/rss', 'format': 'rss'});
-  marketplaces.push({'name': 'reddit_monero', 'feed': 'http://www.reddit.com/r/monero/.rss', 'format': 'atom'});
+  marketplaces.push({'name': 'reddit_monero', 'feed': 'http://www.reddit.com/r/monero/.rss', 'format': 'rss'});
   return marketplaces;
 }
 
