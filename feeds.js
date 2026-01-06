@@ -53,15 +53,21 @@ document.body.onload = function(){
   var marketplaces = get_marketplaces();
   marketplaces.forEach((market) => {
     var u = market['feed'];
-    // --- SIMPLIFIED AND WORKING PROXY ---
-    var proxy_url = "https://cors.sh/" + u;
+    // --- CORRECTED PROXY URL ---
+    var proxy_url = "https://proxy.cors.sh/" + u;
     
-    fetch(proxy_url).then((res) => {
+    fetch(proxy_url, {
+        headers: {
+            'x-cors-api-key': 'temp_b738125191064257125e11413a297e68'
+        }
+    })
+    .then((res) => {
       if (!res.ok) {
           throw new Error('Network response was not ok for ' + u);
       }
       return res.text();
-    }).then((xml_text) => {
+    })
+    .then((xml_text) => {
         var listings = [];
         try {
           if(market['format'] == 'scraper') {
@@ -257,14 +263,11 @@ document.body.onload = function(){
           var element = document.getElementById(market['name']+'_box');
           if(element) element.classList.remove('loading-bg');
         }
-      }).catch(error => {
-      console.error('Text conversion failed for', market['name'], ':', error);
+    })
+    .catch(error => {
+      console.error('Fetch failed for', market['name'], ':', error);
       var element = document.getElementById(market['name']+'_box');
       if(element) element.classList.remove('loading-bg');
     });
-  }).catch(error => {
-    console.error('Fetch failed for', market['name'], ':', error);
-    var element = document.getElementById(market['name']+'_box');
-    if(element) element.classList.remove('loading-bg');
-  });
+  }); // <-- CORRECTED SYNTAX ERROR WAS HERE
 }
