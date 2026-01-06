@@ -117,7 +117,7 @@ document.body.onload = function(){
               });
             } else if(market['name'] == 'monerica') {
               var ccs_links = $(scraper_doc).find('li a');
-              var ccs_links = ccs_links.slice(14, 24);
+              var ccs_links = ccs_links.slice(14, 20); // CHANGED 24 to 20 for 6 items
               ccs_links.each(function() {
                 var title = $(this).text();
                 var timestamp = (new Date().getTime()/1000);
@@ -153,7 +153,7 @@ document.body.onload = function(){
               if(emission_match) $('#stats_emission').text(emission_match[2]+' XMR');
             }
             
-            listings = listings.slice(0, 10);
+            listings = listings.slice(0, 6); // CHANGED 10 to 6
             listings.forEach((item) => add_listing(item));
             
           } else if(market['format'] == 'api') {
@@ -162,7 +162,7 @@ document.body.onload = function(){
               json_text.forEach((item) => {
                 listings.push({ "title": item.title, "timestamp": (new Date().getTime()/1000), "link": 'https://bounties.monero.social/posts/'+item.id+'/'+item.slug, "market": market['name'] });
               });
-              listings = listings.slice(0, 10);
+              listings = listings.slice(0, 6); // CHANGED 10 to 6
               listings.forEach((item) => add_listing(item));
             } else if(market['name'] == 'price_in_usd') {
               if(json_text?.data?.USD) {
@@ -232,7 +232,7 @@ document.body.onload = function(){
               }
             }
             
-            listings = listings.slice(0, 10);
+            listings = listings.slice(0, 6); // CHANGED 10 to 6
             listings.forEach((item) => add_listing(item));
           }
         } catch(error) {
