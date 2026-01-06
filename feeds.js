@@ -40,7 +40,7 @@ function get_marketplaces() {
   marketplaces.push({'name': 'bitejo', 'feed': 'https://xmrbazaar.com/rss', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero_market', 'feed': 'https://www.reddit.com/r/moneromarket.rss', 'format': 'atom'});
   // --- FINAL FIX: Using stable lightbrd.com RSS for Twitter ---
-  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://lightbrd.com/monero/rss', 'format': 'rss'});
+  marketplaces.push({'name': 'twitter_monero', 'feed': 'https://xcancel.com/monero/rss', 'format': 'rss'});
   marketplaces.push({'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'});
   marketplaces.push({'name': 'reddit_monero', 'feed': 'https://www.reddit.com/r/monero.rss', 'format': 'atom'});
   return marketplaces;
