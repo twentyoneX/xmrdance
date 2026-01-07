@@ -20,12 +20,19 @@ function add_listing(item) {
 function get_marketplaces() {
   return [
     // 1. JSON APIs (Fetched via Proxy)
+    // Trocador and Bounties work best when fetched as raw JSON through a proxy
     {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'api_json'},
     {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api_json'},
 
-    // 2. SPECIAL: RSS2JSON (For sites that block proxies: Talk, Moon)
+    // 2. RSS2JSON ROUTE (For Stubborn Feeds)
+    // These feeds block standard proxies or return complex XML that breaks in browsers.
+    // We use rss2json to convert them to clean JSON first.
     {'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss2json'},
     {'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss2json'},
+    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss2json'},
+    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'rss2json'},
+    {'name': 'twitter_monero', 'feed': 'https://nitter.poast.org/monero/rss', 'format': 'rss2json'},
+    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss2json'},
 
     // 3. HTML SCRAPERS (Fetched via Proxy)
     {'name': 'blockchain_stats', 'feed': 'https://xmrchain.net/', 'format': 'scraper'},
@@ -34,12 +41,7 @@ function get_marketplaces() {
     {'name': 'monerica', 'feed': 'https://monerica.com', 'format': 'scraper'},
 
     // 4. STANDARD RSS/ATOM (Fetched via Proxy)
-    // These work best as standard XML fetch via proxy.
-    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss'},
-    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'},
-    {'name': 'twitter_monero', 'feed': 'https://nitter.privacydev.net/monero/rss', 'format': 'rss'},
-    {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss'},
-    
+    // These work reliably with standard XML parsing
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
     {'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'},
     {'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'},
@@ -51,13 +53,13 @@ function get_marketplaces() {
 }
 
 async function fetch_data(url, format) {
-  // Strategy A: RSS2JSON (Only for strict feeds)
+  // Strategy A: RSS2JSON (Only for strict feeds defined above)
   if (format === 'rss2json') {
     try {
       const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
       if (res.ok) return { type: 'json', content: await res.json() };
     } catch(e) { console.error("RSS2JSON failed for " + url); }
-    return null; // Don't fallback to proxy for these, they block it.
+    return null; 
   }
 
   // Strategy B: Proxy Fallback (For everything else)
@@ -73,21 +75,17 @@ async function fetch_data(url, format) {
       const res = await fetch(target, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
         const text = await res.text();
-        // Validate response is not an error page
         if (text && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
           
-          // For API_JSON format, ensure we actually have JSON string
           if (format === 'api_json') {
              try {
-                // If it's AllOrigins, it might wrap it. If CorsProxy, it's raw.
-                // We'll parse it here.
                 let json = JSON.parse(text);
-                // Handle AllOrigins wrapper
+                // Handle AllOrigins wrapper if present
                 if (json.contents && typeof json.contents === 'string') {
                     try { json = JSON.parse(json.contents); } catch(e){}
                 }
                 return { type: 'json', content: json };
-             } catch(e) { continue; } // Parse failed, try next proxy
+             } catch(e) { continue; } 
           }
           
           return { type: 'text', content: text };
@@ -102,7 +100,7 @@ document.body.onload = function() {
   get_marketplaces().forEach(async (market) => {
     try {
       const result = await fetch_data(market.feed, market.format);
-      if (!result) return; // Fetch failed
+      if (!result) return;
 
       // --- JSON HANDLER ---
       if (result.type === 'json') {
@@ -110,7 +108,11 @@ document.body.onload = function() {
         
         // rss2json items
         if (json.items) {
-           json.items.slice(0, 6).forEach(i => add_listing({"title": i.title, "link": i.link, "market": market.name}));
+           json.items.slice(0, 6).forEach(i => {
+             var t = i.title;
+             if (market.name === 'twitter_monero') t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+             add_listing({"title": t, "link": i.link, "market": market.name});
+           });
         }
         // Trocador API
         else if (market.name === 'trocador_price') {
@@ -170,7 +172,6 @@ document.body.onload = function() {
             (Array.isArray(items) ? items : [items]).slice(0, 6).forEach(i => {
               var t = i.title;
               if (market.name === 'events_calendar' && t.includes(' scheduled for ')) t = t.split(' scheduled for ')[0];
-              if (market.name.includes('twitter') || market.name.includes('telegram')) t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
               
               add_listing({"title": t, "link": i.link?._href || i.link, "market": market.name});
             });
