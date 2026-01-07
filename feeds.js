@@ -18,9 +18,14 @@ function add_listing(item) {
 
 function get_marketplaces() {
   return [
-    // 1. JSON APIs (Fetched via Proxy)
-    // FIXED: Use CoinGecko instead of Trocador (no API key needed)
-    {'name': 'coingecko_price', 'feed': 'https://api.coingecko.com/api/v3/simple/price?ids=monero,bitcoin&vs_currencies=usd', 'format': 'api_json'},
+    // 1. DECENTRALIZED PRICE APIs
+    // Option 1: Kraken Public API (no key required, supports XMR/USD and XMR/BTC)
+    {'name': 'kraken_price', 'feed': 'https://api.kraken.com/0/public/Ticker?pair=XMRUSD,XMRXBT', 'format': 'api_json'},
+    
+    // Option 2: Multiple sources - uncomment to try these alternatives:
+    // {'name': 'cryptowatch_price', 'feed': 'https://api.cryptowat.ch/markets/kraken/xmrusd/price', 'format': 'api_json'},
+    // {'name': 'binance_price', 'feed': 'https://api.binance.com/api/v3/ticker/price?symbols=["XMRUSDT","BTCUSDT"]', 'format': 'api_json'},
+    
     {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api_json'},
 
     // 2. STRICT FEEDS (RSS2JSON Only)
@@ -30,9 +35,7 @@ function get_marketplaces() {
     {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss2json'},
 
     // 3. STANDARD RSS/ATOM (Fetched via Proxy)
-    // FIXED: Change monero.town to atom format
     {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'},
-    // FIXED: Use RSS2JSON for monero_standard due to XML issues
     {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss2json'},
     
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
@@ -83,21 +86,21 @@ async function fetch_data(url, format) {
       if (res.ok) {
         const text = await res.text();
         
-        // Validation: Ensure we didn't get an error page
+        // Validation
         if (text && text.length > 50 && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
           
           // If we expected JSON
           if (format === 'api_json') {
              try {
                 let json = JSON.parse(text);
-                // Handle wrapped JSON from some proxies
+                // Handle wrapped JSON
                 if (json.contents && typeof json.contents === 'string') {
                   try { json = JSON.parse(json.contents); } catch(e){}
                 }
                 console.log('Proxy success for', url);
                 return { type: 'json', content: json };
              } catch(e) { 
-               console.log('JSON parse failed for', url, '- trying next proxy');
+               console.log('JSON parse failed for', url);
                continue; 
              } 
           }
@@ -134,25 +137,55 @@ document.body.onload = function() {
              add_listing({"title": t, "link": i.link, "market": market.name});
            });
         }
-        // FIXED: CoinGecko API (replaces Trocador)
-        else if (market.name === 'coingecko_price') {
-           console.log('CoinGecko response:', json);
+        // KRAKEN PUBLIC API (Decentralized alternative)
+        else if (market.name === 'kraken_price') {
+           console.log('Kraken response:', json);
            
-           if(json.monero && json.monero.usd) { 
-             const usdPrice = parseFloat(json.monero.usd).toFixed(2);
-             console.log('Setting USD price:', usdPrice);
+           if(json.result) {
+             // XMR/USD price
+             const xmrUsd = json.result.XMRUSD || json.result.XXMRZUSD;
+             if (xmrUsd && xmrUsd.c && xmrUsd.c[0]) {
+               const usdPrice = parseFloat(xmrUsd.c[0]).toFixed(2);
+               console.log('Setting USD price:', usdPrice);
+               $('#header_monero_usd_price').text('$'+usdPrice);
+               $('#box_monero_usd_price').text('$'+usdPrice);
+             }
+             
+             // XMR/BTC price
+             const xmrBtc = json.result.XMRXBT || json.result.XXMRXXBT;
+             if (xmrBtc && xmrBtc.c && xmrBtc.c[0]) {
+               const btcPrice = parseFloat(xmrBtc.c[0]).toFixed(6);
+               console.log('Setting BTC price:', btcPrice);
+               $('#box_monero_btc_price').text(btcPrice + ' BTC');
+             }
+           }
+           
+           var el = document.getElementById('kraken_price_box');
+           if (el) el.classList.remove('loading-bg');
+        }
+        // Alternative: Cryptowatch API
+        else if (market.name === 'cryptowatch_price') {
+           if (json.result && json.result.price) {
+             const usdPrice = parseFloat(json.result.price).toFixed(2);
              $('#header_monero_usd_price').text('$'+usdPrice);
              $('#box_monero_usd_price').text('$'+usdPrice);
            }
-           if(json.monero && json.bitcoin && json.monero.usd && json.bitcoin.usd) {
-             const btcPrice = (parseFloat(json.monero.usd) / parseFloat(json.bitcoin.usd)).toFixed(6);
-             console.log('Setting BTC price:', btcPrice);
-             $('#box_monero_btc_price').text(btcPrice + ' BTC');
+        }
+        // Alternative: Binance API
+        else if (market.name === 'binance_price') {
+           if (Array.isArray(json)) {
+             const xmr = json.find(c => c.symbol === 'XMRUSDT');
+             const btc = json.find(c => c.symbol === 'BTCUSDT');
+             if (xmr && xmr.price) {
+               const usdPrice = parseFloat(xmr.price).toFixed(2);
+               $('#header_monero_usd_price').text('$'+usdPrice);
+               $('#box_monero_usd_price').text('$'+usdPrice);
+             }
+             if (xmr && btc && xmr.price && btc.price) {
+               const btcPrice = (parseFloat(xmr.price) / parseFloat(btc.price)).toFixed(6);
+               $('#box_monero_btc_price').text(btcPrice + ' BTC');
+             }
            }
-           
-           // Remove loading indicator
-           var el = document.getElementById('coingecko_price_box');
-           if (el) el.classList.remove('loading-bg');
         }
         // Bounties API
         else if (market.name === 'monero_bounties') {
@@ -208,16 +241,14 @@ document.body.onload = function() {
             var x2js = new X2JS();
             var xml = DOMPARSER(text, "text/xml");
             
-            // Check for XML parsing errors
             const parseError = xml.querySelector('parsererror');
             if (parseError) {
-              throw new Error('XML parsing failed: ' + parseError.textContent.substring(0, 200));
+              throw new Error('XML parsing failed');
             }
             
             var data = x2js.xml2json(xml);
-            
-            // Determine items based on format
             var items = null;
+            
             if (market.format === 'atom') {
               items = data.feed?.entry;
             } else {
@@ -229,13 +260,10 @@ document.body.onload = function() {
                 var t = i.title;
                 var link = i.link?._href || i.link;
                 
-                // Skip if no title or link
                 if (!t || !link) return;
                 
-                // Calendar cleanup
                 if (market.name === 'events_calendar' && t.includes(' scheduled for ')) {
-                  var parts = t.split(' scheduled for ');
-                  t = parts[0];
+                  t = t.split(' scheduled for ')[0];
                 }
                 
                 add_listing({"title": t, "link": link, "market": market.name});
@@ -248,7 +276,6 @@ document.body.onload = function() {
         }
       }
       
-      // Success - remove loading indicator
       var el = document.getElementById(market.name+'_box');
       if (el) el.classList.remove('loading-bg');
       
