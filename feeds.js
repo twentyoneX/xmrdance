@@ -23,18 +23,14 @@ function get_marketplaces() {
     {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api_json'},
 
     // 2. STRICT FEEDS (RSS2JSON Only)
-    // These specific feeds are extremely hostile to standard proxies.
     {'name': 'monero_talk', 'feed': 'https://feeds.fireside.fm/monerotalk/rss', 'format': 'rss2json'},
     {'name': 'monero_moon', 'feed': 'https://www.themoneromoon.com/feed', 'format': 'rss2json'},
     {'name': 'twitter_monero', 'feed': 'https://nitter.poast.org/monero/rss', 'format': 'rss2json'},
     {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss2json'},
 
     // 3. STANDARD RSS/ATOM (Fetched via Proxy)
-    // Switched Monero.town and Monero Standard back here for reliability.
     {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'rss'},
-    // Note: Using Monero Observer source for Standard because LocalMonero is winding down
     {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss'},
-    
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
     {'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'},
     {'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'},
@@ -58,11 +54,14 @@ async function fetch_data(url, format) {
       const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
       if (res.ok) {
         const json = await res.json();
-        // If rss2json succeeds, return it.
-        if (json.status === 'ok') return { type: 'json', content: json };
+        if (json.status === 'ok') {
+          console.log('RSS2JSON success for', url);
+          return { type: 'json', content: json };
+        }
       }
-    } catch(e) { console.log("RSS2JSON failed for " + url + ", falling back to proxies."); }
-    // If we reach here, RSS2JSON failed. We fall through to Strategy B to try proxies as backup.
+    } catch(e) { 
+      console.log("RSS2JSON failed for " + url + ", falling back to proxies."); 
+    }
   }
 
   // Strategy B: Proxy Fallback
@@ -78,22 +77,33 @@ async function fetch_data(url, format) {
       const res = await fetch(target, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
         const text = await res.text();
+        
         // Validation: Ensure we didn't get an error page
         if (text && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
           
-          // If we expected JSON (API or RSS2JSON fallback), try to parse it
+          // If we expected JSON
           if (format === 'api_json') {
              try {
                 let json = JSON.parse(text);
-                if (json.contents && typeof json.contents === 'string') { try { json = JSON.parse(json.contents); } catch(e){} }
+                // Handle wrapped JSON from some proxies
+                if (json.contents && typeof json.contents === 'string') {
+                  try { json = JSON.parse(json.contents); } catch(e){}
+                }
+                console.log('Proxy success for', url);
                 return { type: 'json', content: json };
-             } catch(e) { continue; } 
+             } catch(e) { 
+               console.log('JSON parse failed, trying next proxy');
+               continue; 
+             } 
           }
           
+          console.log('Proxy success for', url);
           return { type: 'text', content: text };
         }
       }
-    } catch (e) { }
+    } catch (e) { 
+      console.log('Proxy failed:', proxy, e.message);
+    }
   }
   throw new Error('All proxies failed for ' + url);
 }
@@ -109,30 +119,54 @@ document.body.onload = function() {
         const json = result.content;
         
         // RSS2JSON Items
-        if (json.items) {
+        if (json.items && Array.isArray(json.items)) {
            json.items.slice(0, 6).forEach(i => {
+             if (!i.title || !i.link) return;
              var t = i.title;
-             if (market.name === 'twitter_monero') t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+             if (market.name === 'twitter_monero') {
+               t = t.replace(/<[^>]*>?/gm, '').split(/\s+/).slice(0, 10).join(' ') + '…';
+             }
              add_listing({"title": t, "link": i.link, "market": market.name});
            });
         }
         // Trocador API
         else if (market.name === 'trocador_price') {
-           const data = Array.isArray(json) ? json : null;
-           if (data) {
+           console.log('Trocador response:', json);
+           const data = Array.isArray(json) ? json : (json.data || null);
+           if (data && Array.isArray(data)) {
               const xmr = data.find(c => c.ticker === 'XMR');
               const btc = data.find(c => c.ticker === 'BTC');
-              if(xmr) { 
-                $('#header_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
-                $('#box_monero_usd_price').text('$'+parseFloat(xmr.usd_price).toFixed(2));
+              
+              console.log('XMR data:', xmr);
+              console.log('BTC data:', btc);
+              
+              if(xmr && xmr.usd_price) { 
+                const usdPrice = parseFloat(xmr.usd_price).toFixed(2);
+                console.log('Setting USD price:', usdPrice);
+                $('#header_monero_usd_price').text('$'+usdPrice);
+                $('#box_monero_usd_price').text('$'+usdPrice);
               }
-              if(xmr && btc) $('#box_monero_btc_price').text((xmr.usd_price/btc.usd_price).toFixed(6)+' BTC');
+              if(xmr && btc && xmr.usd_price && btc.usd_price) {
+                const btcPrice = (parseFloat(xmr.usd_price) / parseFloat(btc.usd_price)).toFixed(6);
+                console.log('Setting BTC price:', btcPrice);
+                $('#box_monero_btc_price').text(btcPrice + ' BTC');
+              }
            }
+           // Remove loading indicator
+           var el = document.getElementById('trocador_price_box');
+           if (el) el.classList.remove('loading-bg');
         }
         // Bounties API
         else if (market.name === 'monero_bounties') {
            if (Array.isArray(json)) {
-             json.slice(0, 6).forEach(i => add_listing({"title": i.title, "link": 'https://bounties.monero.social/posts/'+i.id, "market": market.name}));
+             json.slice(0, 6).forEach(i => {
+               if (!i.title || !i.id) return;
+               add_listing({
+                 "title": i.title, 
+                 "link": 'https://bounties.monero.social/posts/'+i.id+'/'+i.slug, 
+                 "market": market.name
+               });
+             });
            }
         }
       }
@@ -143,17 +177,24 @@ document.body.onload = function() {
         
         if (market.format === 'scraper') {
           var doc = new DOMParser().parseFromString(text, "text/html");
+          
           if (market.name === 'ccs') {
             $(doc).find('.fund-required a').slice(0, 6).each(function() {
-              add_listing({"title": $(this).find('h3').text(), "link": 'https://ccs.getmonero.org'+$(this).attr('href'), "market": market.name});
+              var title = $(this).find('h3').text();
+              var link = 'https://ccs.getmonero.org'+$(this).attr('href');
+              if (title && link) add_listing({"title": title, "link": link, "market": market.name});
             });
           } else if (market.name === 'monerochan_news') {
             $(doc).find('a[href*="article"]').slice(0, 6).each(function() {
-              add_listing({"title": $(this).find('h1').text(), "link": 'https://monerochan.news'+$(this).attr('href'), "market": market.name});
+              var title = $(this).find('h1').text();
+              var link = 'https://monerochan.news'+$(this).attr('href');
+              if (title && link) add_listing({"title": title, "link": link, "market": market.name});
             });
           } else if (market.name === 'monerica') {
             $(doc).find('li a').slice(14, 20).each(function() {
-              add_listing({"title": $(this).text(), "link": $(this).attr('href'), "market": market.name});
+              var title = $(this).text();
+              var link = $(this).attr('href');
+              if (title && link) add_listing({"title": title, "link": link, "market": market.name});
             });
           } else if (market.name === 'blockchain_stats') {
             var st = $(doc).text();
@@ -165,26 +206,61 @@ document.body.onload = function() {
           }
         } else {
           // Standard XML Parser (RSS/Atom)
-          var x2js = new X2JS();
-          var xml = DOMPARSER(text, "text/xml");
-          var data = x2js.xml2json(xml);
-          var items = (market.format === 'atom' || market.name === 'monerochan_forum') ? data.feed?.entry : data.rss?.channel?.item;
-          
-          if (items) {
-            (Array.isArray(items) ? items : [items]).slice(0, 6).forEach(i => {
-              var t = i.title;
-              // Calendar cleanup
-              if (market.name === 'events_calendar' && t.includes(' scheduled for ')) t = t.split(' scheduled for ')[0];
-              
-              add_listing({"title": t, "link": i.link?._href || i.link, "market": market.name});
-            });
+          try {
+            var x2js = new X2JS();
+            var xml = DOMPARSER(text, "text/xml");
+            
+            // Check for XML parsing errors
+            const parseError = xml.querySelector('parsererror');
+            if (parseError) {
+              throw new Error('XML parsing failed: ' + parseError.textContent);
+            }
+            
+            var data = x2js.xml2json(xml);
+            
+            // Determine items based on format
+            var items = null;
+            if (market.format === 'atom' || market.name === 'monerochan_forum') {
+              items = data.feed?.entry;
+            } else {
+              items = data.rss?.channel?.item;
+            }
+            
+            if (items) {
+              (Array.isArray(items) ? items : [items]).slice(0, 6).forEach(i => {
+                var t = i.title;
+                var link = i.link?._href || i.link;
+                
+                // Skip if no title or link
+                if (!t || !link) return;
+                
+                // Calendar cleanup
+                if (market.name === 'events_calendar' && t.includes(' scheduled for ')) {
+                  var parts = t.split(' scheduled for ');
+                  t = parts[0];
+                }
+                
+                add_listing({"title": t, "link": link, "market": market.name});
+              });
+            }
+          } catch (xmlError) {
+            console.error('XML parse error for ' + market.name + ':', xmlError);
+            throw xmlError;
           }
         }
       }
-    } catch(e) {
-      console.error(market.name + ' failed:', e);
+      
+      // Success - remove loading indicator
       var el = document.getElementById(market.name+'_box');
-      if (el) el.style.display = 'none';
+      if (el) el.classList.remove('loading-bg');
+      
+    } catch(e) {
+      console.error(market.name + ' failed:', e.message);
+      var el = document.getElementById(market.name+'_box');
+      if (el) {
+        el.classList.remove('loading-bg');
+        el.style.display = 'none';
+      }
     }
   });
 }
