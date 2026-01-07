@@ -18,9 +18,11 @@ function add_listing(item) {
 
 function get_marketplaces() {
   return [
-    // 1. DECENTRALIZED PRICE APIs
-    // Option 1: Kraken Public API (no key required, supports XMR/USD and XMR/BTC)
-    {'name': 'kraken_price', 'feed': 'https://api.kraken.com/0/public/Ticker?pair=XMRUSD,XMRXBT', 'format': 'api_json'},
+    // 1. PRICE APIs
+    // Try Trocador first (aggregator of DEX prices), fallback to Kraken if needed
+    {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'api_json'},
+    // Backup: Kraken Public API (no key required)
+    // {'name': 'kraken_price', 'feed': 'https://api.kraken.com/0/public/Ticker?pair=XMRUSD,XMRXBT', 'format': 'api_json'},
     
     // Option 2: Multiple sources - uncomment to try these alternatives:
     // {'name': 'cryptowatch_price', 'feed': 'https://api.cryptowat.ch/markets/kraken/xmrusd/price', 'format': 'api_json'},
