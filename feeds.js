@@ -19,7 +19,8 @@ function add_listing(item) {
 function get_marketplaces() {
   return [
     // 1. JSON APIs (Fetched via Proxy)
-    {'name': 'trocador_price', 'feed': 'https://trocador.app/api/v1/coins', 'format': 'api_json'},
+    // FIXED: Use CoinGecko instead of Trocador (no API key needed)
+    {'name': 'coingecko_price', 'feed': 'https://api.coingecko.com/api/v3/simple/price?ids=monero,bitcoin&vs_currencies=usd', 'format': 'api_json'},
     {'name': 'monero_bounties', 'feed': 'https://bounties.monero.social/api/v1/posts?view=trending', 'format': 'api_json'},
 
     // 2. STRICT FEEDS (RSS2JSON Only)
@@ -29,8 +30,11 @@ function get_marketplaces() {
     {'name': 'telegram_monero_market', 'feed': 'https://rss.app/feed/f5u7lCILQ5NZ3iGl', 'format': 'rss2json'},
 
     // 3. STANDARD RSS/ATOM (Fetched via Proxy)
-    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'rss'},
-    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss'},
+    // FIXED: Change monero.town to atom format
+    {'name': 'monerochan_forum', 'feed': 'https://monero.town/feeds/local.xml?sort=Active', 'format': 'atom'},
+    // FIXED: Use RSS2JSON for monero_standard due to XML issues
+    {'name': 'monero_standard', 'feed': 'https://monero.observer/tag/the-monero-standard/feed.xml', 'format': 'rss2json'},
+    
     {'name': 'events_calendar', 'feed': 'https://monero.observer/feed-calendar.xml', 'format': 'rss'},
     {'name': 'monero_observer_news', 'feed': 'https://monero.observer/feed-mini.xml', 'format': 'rss'},
     {'name': 'revuo_monero', 'feed': 'https://www.revuo-xmr.com/atom.xml', 'format': 'rss'},
@@ -51,7 +55,9 @@ async function fetch_data(url, format) {
   // Strategy A: RSS2JSON (Priority for strict feeds)
   if (format === 'rss2json') {
     try {
-      const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
+      const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url), {
+        signal: AbortSignal.timeout(10000)
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.status === 'ok') {
@@ -60,14 +66,13 @@ async function fetch_data(url, format) {
         }
       }
     } catch(e) { 
-      console.log("RSS2JSON failed for " + url + ", falling back to proxies."); 
+      console.log("RSS2JSON failed for " + url + ":", e.message); 
     }
   }
 
   // Strategy B: Proxy Fallback
   const proxies = [
     "https://corsproxy.io/?",
-    "https://api.allorigins.win/raw?url=",
     "https://api.codetabs.com/v1/proxy?quest="
   ];
 
@@ -79,7 +84,7 @@ async function fetch_data(url, format) {
         const text = await res.text();
         
         // Validation: Ensure we didn't get an error page
-        if (text && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
+        if (text && text.length > 50 && !text.includes('Access Denied') && !text.includes('Cloudflare') && !text.includes('403 Forbidden')) {
           
           // If we expected JSON
           if (format === 'api_json') {
@@ -92,7 +97,7 @@ async function fetch_data(url, format) {
                 console.log('Proxy success for', url);
                 return { type: 'json', content: json };
              } catch(e) { 
-               console.log('JSON parse failed, trying next proxy');
+               console.log('JSON parse failed for', url, '- trying next proxy');
                continue; 
              } 
           }
@@ -102,7 +107,7 @@ async function fetch_data(url, format) {
         }
       }
     } catch (e) { 
-      console.log('Proxy failed:', proxy, e.message);
+      console.log('Proxy failed:', proxy.split('?')[0], '-', e.message);
     }
   }
   throw new Error('All proxies failed for ' + url);
@@ -129,31 +134,24 @@ document.body.onload = function() {
              add_listing({"title": t, "link": i.link, "market": market.name});
            });
         }
-        // Trocador API
-        else if (market.name === 'trocador_price') {
-           console.log('Trocador response:', json);
-           const data = Array.isArray(json) ? json : (json.data || null);
-           if (data && Array.isArray(data)) {
-              const xmr = data.find(c => c.ticker === 'XMR');
-              const btc = data.find(c => c.ticker === 'BTC');
-              
-              console.log('XMR data:', xmr);
-              console.log('BTC data:', btc);
-              
-              if(xmr && xmr.usd_price) { 
-                const usdPrice = parseFloat(xmr.usd_price).toFixed(2);
-                console.log('Setting USD price:', usdPrice);
-                $('#header_monero_usd_price').text('$'+usdPrice);
-                $('#box_monero_usd_price').text('$'+usdPrice);
-              }
-              if(xmr && btc && xmr.usd_price && btc.usd_price) {
-                const btcPrice = (parseFloat(xmr.usd_price) / parseFloat(btc.usd_price)).toFixed(6);
-                console.log('Setting BTC price:', btcPrice);
-                $('#box_monero_btc_price').text(btcPrice + ' BTC');
-              }
+        // FIXED: CoinGecko API (replaces Trocador)
+        else if (market.name === 'coingecko_price') {
+           console.log('CoinGecko response:', json);
+           
+           if(json.monero && json.monero.usd) { 
+             const usdPrice = parseFloat(json.monero.usd).toFixed(2);
+             console.log('Setting USD price:', usdPrice);
+             $('#header_monero_usd_price').text('$'+usdPrice);
+             $('#box_monero_usd_price').text('$'+usdPrice);
            }
+           if(json.monero && json.bitcoin && json.monero.usd && json.bitcoin.usd) {
+             const btcPrice = (parseFloat(json.monero.usd) / parseFloat(json.bitcoin.usd)).toFixed(6);
+             console.log('Setting BTC price:', btcPrice);
+             $('#box_monero_btc_price').text(btcPrice + ' BTC');
+           }
+           
            // Remove loading indicator
-           var el = document.getElementById('trocador_price_box');
+           var el = document.getElementById('coingecko_price_box');
            if (el) el.classList.remove('loading-bg');
         }
         // Bounties API
@@ -163,7 +161,7 @@ document.body.onload = function() {
                if (!i.title || !i.id) return;
                add_listing({
                  "title": i.title, 
-                 "link": 'https://bounties.monero.social/posts/'+i.id+'/'+i.slug, 
+                 "link": 'https://bounties.monero.social/posts/'+i.id+'/'+(i.slug||''), 
                  "market": market.name
                });
              });
@@ -213,14 +211,14 @@ document.body.onload = function() {
             // Check for XML parsing errors
             const parseError = xml.querySelector('parsererror');
             if (parseError) {
-              throw new Error('XML parsing failed: ' + parseError.textContent);
+              throw new Error('XML parsing failed: ' + parseError.textContent.substring(0, 200));
             }
             
             var data = x2js.xml2json(xml);
             
             // Determine items based on format
             var items = null;
-            if (market.format === 'atom' || market.name === 'monerochan_forum') {
+            if (market.format === 'atom') {
               items = data.feed?.entry;
             } else {
               items = data.rss?.channel?.item;
@@ -244,7 +242,7 @@ document.body.onload = function() {
               });
             }
           } catch (xmlError) {
-            console.error('XML parse error for ' + market.name + ':', xmlError);
+            console.error('XML parse error for ' + market.name + ':', xmlError.message);
             throw xmlError;
           }
         }
